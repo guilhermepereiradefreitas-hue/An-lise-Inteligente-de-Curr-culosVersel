@@ -1028,15 +1028,35 @@ Responda APENAS com JSON válido, sem markdown, sem texto extra:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
 
     const data = await res.json();
+
+    // Detecta erros da API ou do proxy
+    if (!res.ok || data.error) {
+      const msg = data.error?.message || data.error || 'Erro desconhecido da API';
+      throw new Error(msg);
+    }
+
+    // Garante que content existe
+    if (!data.content || !Array.isArray(data.content)) {
+      console.error('Resposta inesperada:', JSON.stringify(data));
+      throw new Error('Resposta da API em formato inesperado. Veja o console (F12) para detalhes.');
+    }
+
     const raw = data.content.map(c => c.text || '').join('');
     const clean = raw.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(clean);
+
+    let result;
+    try {
+      result = JSON.parse(clean);
+    } catch(parseErr) {
+      console.error('JSON inválido recebido:', clean);
+      throw new Error('A IA retornou um formato inválido. Tente novamente.');
+    }
 
     result.name = name;
     result.role = role;
