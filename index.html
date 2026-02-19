@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lens Pro — Análise de Currículos</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,600;0,900;1,300&family=Syne:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --bg: #0d0d0f;
+  --surface: #141416;
+  --surface2: #1c1c20;
+  --border: #2a2a30;
+  --border2: #38383f;
+  --text: #e8e6e0;
+  --muted: #6b6b75;
+  --accent: #e8c547;
+  --accent2: #4ecb8d;
+  --danger: #e85447;
+  --maybe: #e8944a;
+  --card-pad: 1.5rem;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Syne', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── NAV ─── */
+nav {
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(13,13,15,0.95);
+  backdrop-filter: blur(12px);
+}
+
+.logo {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  margin-right: 2rem;
+}
+
+.logo em { color: var(--accent); font-style: normal; }
+
+.nav-tabs {
+  display: flex;
+  height: 100%;
+  gap: 0;
+}
+
+.nav-tab {
+  padding: 0 1.25rem;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.nav-spacer { flex: 1; }
+
+.history-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  padding: 0.25rem 0.6rem;
+  border-radius: 100px;
+}
+
+/* ─── PAGES ─── */
+.page { display: none; padding: 2rem; max-width: 1300px; margin: 0 auto; width: 100%; }
+.page.active { display: block; }
+
+/* ─── ANALYZE PAGE ─── */
+.analyze-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.panel-head {
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface2);
+}
+
+.step-badge {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--border2);
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-family: 'IBM Plex Mono', monospace;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.panel-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel-body { padding: 1.25rem; }
+
+/* Drop zone */
+.drop-zone {
+  border: 1.5px dashed var(--border2);
+  border-radius: 6px;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.drop-zone:hover, .drop-zone.over {
+  border-color: var(--accent);
+  background: rgba(232,197,71,0.04);
+}
+
+.drop-icon { font-size: 2rem; margin-bottom: 0.6rem; display: block; }
+
+.drop-hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.drop-hint strong { color: var(--accent); cursor: pointer; }
+
+.file-chip {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(78,203,141,0.08);
+  border: 1px solid rgba(78,203,141,0.2);
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--accent2);
+  width: fit-content;
+  margin-left: auto; margin-right: auto;
+}
+
+.file-chip.show { display: flex; }
+
+input[type=file] { display: none; }
+
+textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.88rem;
+  resize: none;
+  outline: none;
+  min-height: 180px;
+  line-height: 1.75;
+}
+
+textarea::placeholder { color: var(--muted); }
+
+/* Candidate name row */
+.name-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.field-group { flex: 1; }
+
+.field-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+  display: block;
+}
+
+input[type=text] {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input[type=text]:focus { border-color: var(--accent); }
+input[type=text]::placeholder { color: var(--muted); }
+
+/* Buttons */
+.btn {
+  border: none;
+  border-radius: 6px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #0d0d0f;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  width: 100%;
+  justify-content: center;
+  letter-spacing: 0.02em;
+}
+
+.btn-primary:hover { background: #f0d060; transform: translateY(-1px); box-shadow: 0 8px 30px rgba(232,197,71,0.2); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  padding: 0.5rem 1rem;
+  font-size: 0.78rem;
+}
+
+.btn-ghost:hover { border-color: var(--text); color: var(--text); }
+
+.btn-danger {
+  background: transparent;
+  border: 1px solid rgba(232,84,71,0.3);
+  color: var(--danger);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.btn-danger:hover { background: rgba(232,84,71,0.08); }
+
+/* Error */
+.error-box {
+  display: none;
+  padding: 0.85rem 1.1rem;
+  background: rgba(232,84,71,0.08);
+  border: 1px solid rgba(232,84,71,0.25);
+  border-radius: 6px;
+  color: var(--danger);
+  font-size: 0.82rem;
+  margin-bottom: 1rem;
+}
+.error-box.show { display: block; }
+
+/* ─── LOADING ─── */
+.loading-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(13,13,15,0.92);
+  backdrop-filter: blur(6px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.loading-overlay.show { display: flex; }
+
+.loading-name {
+  font-family: 'Fraunces', serif;
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--accent);
+}
+
+.loading-track {
+  width: 280px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.loading-progress {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.5s ease;
+  border-radius: 2px;
+}
+
+.loading-step {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+/* ─── RESULTS ─── */
+.results-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.results-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+/* Score hero */
+.score-hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 2rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.score-hero::after {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,197,71,0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.ring-wrap { position: relative; width: 130px; height: 130px; }
+.ring-wrap svg { transform: rotate(-90deg); }
+
+circle { fill: none; stroke-width: 9; stroke-linecap: round; }
+.r-bg { stroke: var(--border2); }
+.r-fill { stroke-dasharray: 339; stroke-dashoffset: 339; transition: stroke-dashoffset 1.3s cubic-bezier(0.2,0,0.2,1); }
+
+.ring-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Fraunces', serif;
+  font-weight: 900;
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.ring-num small {
+  font-size: 0.65rem;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--muted);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.verdict-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 100px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin-bottom: 0.65rem;
+}
+
+.v-go { background: rgba(78,203,141,0.12); color: var(--accent2); border: 1px solid rgba(78,203,141,0.25); }
+.v-maybe { background: rgba(232,148,74,0.1); color: var(--maybe); border: 1px solid rgba(232,148,74,0.25); }
+.v-no { background: rgba(232,84,71,0.1); color: var(--danger); border: 1px solid rgba(232,84,71,0.25); }
+
+.hero-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}
+
+.hero-summary {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+/* Subscores bar */
+.subscores {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.ss-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.ss-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.ss-val {
+  font-family: 'Fraunces', serif;
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.ss-bar { height: 3px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+.ss-fill { height: 100%; border-radius: 2px; width: 0%; transition: width 1s ease 0.6s; }
+
+/* Analysis cards grid */
+.analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.a-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.a-card-head {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface2);
+}
+
+.a-card-body { padding: 1.25rem; }
+
+.item-list { list-style: none; display: flex; flex-direction: column; gap: 0.7rem; }
+
+.item-list li {
+  font-size: 0.85rem;
+  line-height: 1.65;
+  padding-left: 1.2rem;
+  position: relative;
+  color: #c8c4bc;
+}
+
+.item-list li::before {
+  position: absolute;
+  left: 0;
+  font-size: 0.6rem;
+  top: 0.25em;
+}
+
+.l-str li::before { content: '▲'; color: var(--accent2); }
+.l-gap li::before { content: '▼'; color: var(--danger); }
+.l-q { counter-reset: q; }
+.l-q li { counter-increment: q; padding-left: 1.5rem; }
+.l-q li::before { content: counter(q) '.'; font-family: 'IBM Plex Mono', monospace; color: var(--muted); font-size: 0.7rem; }
+
+/* Blind spots */
+.blind-card {
+  background: var(--surface);
+  border: 1px solid rgba(232,197,71,0.25);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.blind-head {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid rgba(232,197,71,0.15);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(232,197,71,0.04);
+}
+
+.blind-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; }
+
+.blind-item {
+  padding: 0.9rem 1rem;
+  background: rgba(232,197,71,0.04);
+  border: 1px solid rgba(232,197,71,0.1);
+  border-radius: 6px;
+}
+
+.blind-label {
+  font-size: 0.68rem;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+}
+
+.blind-text { font-size: 0.84rem; line-height: 1.7; color: #c8c4bc; }
+
+/* Export row */
+.export-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ─── COMPARISON PAGE ─── */
+.compare-intro {
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
+.compare-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.compare-empty span { display: block; font-size: 2.5rem; margin-bottom: 1rem; }
+
+.compare-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.compare-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.compare-header {
+  display: grid;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-cell {
+  padding: 1rem 1.25rem;
+  border-right: 1px solid var(--border);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.compare-cell:last-child { border-right: none; }
+
+.compare-name-cell {
+  background: var(--surface2);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.c-name {
+  font-family: 'Fraunces', serif;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.c-score-badge {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.compare-fields { display: grid; }
+
+.compare-field {
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 1rem;
+  align-items: start;
+  font-size: 0.84rem;
+}
+
+.compare-field:last-child { border-bottom: none; }
+
+.cf-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-top: 0.1rem;
+}
+
+.cf-value { color: #c8c4bc; line-height: 1.65; }
+
+/* ─── HISTORY PAGE ─── */
+.history-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--muted);
+}
+
+.history-empty span { display: block; font-size: 2.5rem; margin-bottom: 1rem; }
+
+.history-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.history-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.history-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: center;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.history-item:hover { border-color: var(--border2); }
+
+.hi-name {
+  font-family: 'Fraunces', serif;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.hi-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  display: flex;
+  gap: 1rem;
+}
+
+.hi-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hi-score {
+  font-family: 'Fraunces', serif;
+  font-size: 1.8rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* ─── UTIL ─── */
+.tag { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.tag-go { background: rgba(78,203,141,0.1); color: var(--accent2); }
+.tag-maybe { background: rgba(232,148,74,0.1); color: var(--maybe); }
+.tag-no { background: rgba(232,84,71,0.1); color: var(--danger); }
+
+.divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+
+@media (max-width: 900px) {
+  .analyze-grid, .analysis-grid, .subscores { grid-template-columns: 1fr; }
+  .score-hero { grid-template-columns: 1fr; text-align: center; }
+  .compare-field { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">L<em>e</em>ns</div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="goTo('analyze')">Analisar</div>
+    <div class="nav-tab" onclick="goTo('compare')">Comparar <span id="compareCount" style="margin-left:4px;font-size:0.65rem;opacity:0.6"></span></div>
+    <div class="nav-tab" onclick="goTo('history')">Histórico</div>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="history-count" id="histCount">0 análises</div>
+</nav>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-name" id="loadingName">Analisando...</div>
+  <div class="loading-track"><div class="loading-progress" id="loadingBar"></div></div>
+  <div class="loading-step" id="loadingStep">Iniciando</div>
+</div>
+
+<!-- ─── PAGE: ANALYZE ─── -->
+<div class="page active" id="page-analyze">
+
+  <!-- INPUT VIEW -->
+  <div id="inputView">
+    <div class="name-row">
+      <div class="field-group">
+        <label class="field-label">Nome do candidato</label>
+        <input type="text" id="candidateName" placeholder="Ex: Mariana Silva">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Cargo disputado</label>
+        <input type="text" id="roleTitle" placeholder="Ex: Gerente de Produto">
+      </div>
+    </div>
+
+    <div class="analyze-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="step-badge">1</div>
+          <span class="panel-label">Currículo — PDF</span>
+        </div>
+        <div class="panel-body">
+          <div class="drop-zone" id="dropZone" onclick="document.getElementById('pdfInput').click()">
+            <span class="drop-icon">📄</span>
+            <div class="drop-hint">Arraste o PDF aqui ou <strong>clique para selecionar</strong></div>
+          </div>
+          <input type="file" id="pdfInput" accept=".pdf">
+          <div class="file-chip" id="fileChip">
+            <span>✓</span><span id="fileName">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="step-badge">2</div>
+          <span class="panel-label">Descrição da Vaga</span>
+        </div>
+        <div class="panel-body">
+          <textarea id="jobDesc" placeholder="Cole a descrição completa da vaga — requisitos, responsabilidades, stack, soft skills, cultura esperada...&#10;&#10;Quanto mais detalhado, mais precisa será a análise."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+    <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">Analisar Candidato →</button>
+  </div>
+
+  <!-- RESULTS VIEW -->
+  <div id="resultsView" style="display:none">
+    <div class="results-header">
+      <button class="btn btn-ghost" onclick="newAnalysis()">← Nova análise</button>
+      <div class="results-title" id="resultsTitle">Resultado</div>
+    </div>
+
+    <div class="score-hero">
+      <div class="ring-wrap">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle class="r-bg" cx="65" cy="65" r="54"/>
+          <circle class="r-fill" id="ringFill" cx="65" cy="65" r="54"/>
+        </svg>
+        <div class="ring-num">
+          <span id="scoreNum">0</span>
+          <small>/ 100</small>
+        </div>
+      </div>
+      <div>
+        <div class="verdict-pill" id="verdictPill">—</div>
+        <div class="hero-title" id="heroTitle">—</div>
+        <div class="hero-summary" id="heroSummary">—</div>
+      </div>
+    </div>
+
+    <div class="subscores" id="subscores"></div>
+
+    <div class="analysis-grid">
+      <div class="a-card">
+        <div class="a-card-head">✦ Pontos Fortes</div>
+        <div class="a-card-body"><ul class="item-list l-str" id="strengths"></ul></div>
+      </div>
+      <div class="a-card">
+        <div class="a-card-head">△ Gaps Identificados</div>
+        <div class="a-card-body"><ul class="item-list l-gap" id="gaps"></ul></div>
+      </div>
+    </div>
+
+    <div class="blind-card">
+      <div class="blind-head">⚑ Pontos Cegos — O que o CV não mostra</div>
+      <div class="blind-body" id="blindspots"></div>
+    </div>
+
+    <div class="a-card">
+      <div class="a-card-head">◇ Perguntas para Entrevista</div>
+      <div class="a-card-body"><ul class="item-list l-q" id="questions"></ul></div>
+    </div>
+
+    <div class="export-row">
+      <button class="btn btn-ghost" onclick="addToCompare()">+ Adicionar à comparação</button>
+      <button class="btn btn-ghost" onclick="exportPDF()">⬇ Exportar PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PAGE: COMPARE ─── -->
+<div class="page" id="page-compare">
+  <div class="history-controls">
+    <p class="compare-intro">Compare os candidatos analisados lado a lado.</p>
+    <button class="btn btn-ghost" onclick="clearCompare()" style="font-size:0.75rem">Limpar seleção</button>
+  </div>
+  <div id="compareContent"></div>
+</div>
+
+<!-- ─── PAGE: HISTORY ─── -->
+<div class="page" id="page-history">
+  <div class="history-controls">
+    <p style="font-size:0.88rem; color:var(--muted)">Todas as análises realizadas nesta sessão e salvas anteriormente.</p>
+    <button class="btn btn-ghost" onclick="clearHistory()" style="font-size:0.75rem">Apagar histórico</button>
+  </div>
+  <div id="historyContent"></div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ─── STATE ───────────────────────────────────────────
+let pdfText = '';
+let currentResult = null;
+let compareList = [];
+let history = [];
+
+// Load history from storage
+(async () => {
+  try {
+    const stored = await window.storage.get('lens-history');
+    if (stored) history = JSON.parse(stored.value);
+  } catch(e) { history = []; }
+  updateHistCount();
+})();
+
+async function saveHistory() {
+  try { await window.storage.set('lens-history', JSON.stringify(history)); } catch(e) {}
+  updateHistCount();
+}
+
+function updateHistCount() {
+  const n = history.length;
+  document.getElementById('histCount').textContent = n + ' análise' + (n !== 1 ? 's' : '');
+}
+
+// ─── NAV ─────────────────────────────────────────────
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  event.currentTarget.classList.add('active');
+
+  if (page === 'compare') renderCompare();
+  if (page === 'history') renderHistory();
+}
+
+// ─── FILE HANDLING ────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('over'); if (e.dataTransfer.files[0]) loadPDF(e.dataTransfer.files[0]); });
+document.getElementById('pdfInput').addEventListener('change', e => { if (e.target.files[0]) loadPDF(e.target.files[0]); });
+
+async function loadPDF(file) {
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileChip').classList.add('show');
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let txt = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const c = await page.getTextContent();
+    txt += c.items.map(s => s.str).join(' ') + '\n';
+  }
+  pdfText = txt.trim();
+}
+
+// ─── ANALYZE ─────────────────────────────────────────
+function showError(msg) {
+  const b = document.getElementById('errorBox');
+  b.textContent = msg; b.classList.add('show');
+}
+function hideError() { document.getElementById('errorBox').classList.remove('show'); }
+
+function setLoadingStep(step, pct) {
+  document.getElementById('loadingStep').textContent = step;
+  document.getElementById('loadingBar').style.width = pct + '%';
+}
+
+async function analyze() {
+  hideError();
+  const name = document.getElementById('candidateName').value.trim() || 'Candidato';
+  const role = document.getElementById('roleTitle').value.trim() || 'Vaga';
+  const jobDesc = document.getElementById('jobDesc').value.trim();
+
+  if (!pdfText) return showError('Por favor, faça o upload do currículo em PDF.');
+  if (!jobDesc) return showError('Por favor, cole a descrição da vaga.');
+
+  document.getElementById('loadingName').textContent = 'Analisando ' + name;
+  document.getElementById('loadingOverlay').classList.add('show');
+  setLoadingStep('Lendo currículo...', 10);
+  await sleep(300);
+  setLoadingStep('Comparando com a vaga...', 35);
+  await sleep(300);
+  setLoadingStep('Identificando pontos cegos...', 60);
+
+  const prompt = `Você é um especialista sênior em recrutamento e seleção. Analise este currículo em relação à vaga.
+
+CANDIDATO: ${name}
+VAGA: ${role}
+
+CURRÍCULO:
+${pdfText.substring(0, 6000)}
+
+DESCRIÇÃO DA VAGA:
+${jobDesc.substring(0, 2000)}
+
+Responda APENAS com JSON válido, sem markdown, sem texto extra:
+{
+  "score": <número 0-100>,
+  "verdict": <"GO" | "MAYBE" | "NO">,
+  "title": <frase curta de avaliação>,
+  "summary": <2-3 frases resumo executivo>,
+  "subscores": [
+    {"label": "Experiência", "value": <0-100>},
+    {"label": "Técnico", "value": <0-100>},
+    {"label": "Soft Skills", "value": <0-100>},
+    {"label": "Apresentação", "value": <0-100>}
+  ],
+  "strengths": [<3 pontos fortes específicos>],
+  "gaps": [<3 lacunas específicas>],
+  "blindspots": [
+    {"label": <tema>, "text": <o que o CV não evidencia e por que é relevante>},
+    {"label": <tema>, "text": <explicação>},
+    {"label": <tema>, "text": <explicação>}
+  ],
+  "questions": [<5 perguntas de entrevista focadas nos gaps e pontos cegos>]
+}`;
+
+  try {
+    setLoadingStep('Gerando análise com IA...', 75);
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const raw = data.content.map(c => c.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    result.name = name;
+    result.role = role;
+    result.date = new Date().toLocaleDateString('pt-BR');
+    result.id = Date.now();
+
+    setLoadingStep('Pronto!', 100);
+    await sleep(400);
+
+    currentResult = result;
+    history.unshift(result);
+    await saveHistory();
+
+    document.getElementById('loadingOverlay').classList.remove('show');
+    showResults(result);
+
+  } catch(err) {
+    document.getElementById('loadingOverlay').classList.remove('show');
+    showError('Erro na análise: ' + err.message);
+  }
+}
+
+function showResults(r) {
+  document.getElementById('inputView').style.display = 'none';
+  document.getElementById('resultsView').style.display = 'block';
+
+  document.getElementById('resultsTitle').textContent = r.name + ' — ' + r.role;
+
+  // Ring
+  const fill = document.getElementById('ringFill');
+  const circumference = 339;
+  const color = r.score >= 70 ? 'var(--accent2)' : r.score >= 50 ? 'var(--maybe)' : 'var(--danger)';
+  fill.style.stroke = color;
+  setTimeout(() => {
+    fill.style.strokeDashoffset = circumference - (circumference * r.score / 100);
+  }, 100);
+  animateCount('scoreNum', 0, r.score, 1200);
+
+  // Verdict
+  const vp = document.getElementById('verdictPill');
+  const vm = { GO: ['v-go','✓ Avançar'], MAYBE: ['v-maybe','◎ Avaliar'], NO: ['v-no','✕ Não recomendado'] };
+  const [cls, lbl] = vm[r.verdict] || vm['MAYBE'];
+  vp.className = 'verdict-pill ' + cls;
+  vp.textContent = lbl;
+
+  document.getElementById('heroTitle').textContent = r.title;
+  document.getElementById('heroSummary').textContent = r.summary;
+
+  // Subscores
+  const ssColors = ['var(--accent2)', 'var(--accent)', 'var(--maybe)', 'var(--muted)'];
+  document.getElementById('subscores').innerHTML = r.subscores.map((s, i) => `
+    <div class="ss-card">
+      <div class="ss-label">${s.label}</div>
+      <div class="ss-val" style="color:${ssColors[i % 4]}">${s.value}</div>
+      <div class="ss-bar"><div class="ss-fill" style="background:${ssColors[i % 4]};width:${s.value}%"></div></div>
+    </div>
+  `).join('');
+
+  renderList('strengths', r.strengths);
+  renderList('gaps', r.gaps);
+  renderList('questions', r.questions);
+
+  document.getElementById('blindspots').innerHTML = r.blindspots.map(b => `
+    <div class="blind-item">
+      <div class="blind-label">⚑ ${b.label}</div>
+      <div class="blind-text">${b.text}</div>
+    </div>
+  `).join('');
+}
+
+function renderList(id, items) {
+  document.getElementById(id).innerHTML = (items || []).map(i => `<li>${i}</li>`).join('');
+}
+
+// ─── COMPARE ─────────────────────────────────────────
+function addToCompare() {
+  if (!currentResult) return;
+  if (compareList.find(c => c.id === currentResult.id)) {
+    alert('Este candidato já está na comparação.');
+    return;
+  }
+  compareList.push(currentResult);
+  document.getElementById('compareCount').textContent = '(' + compareList.length + ')';
+}
+
+function clearCompare() {
+  compareList = [];
+  document.getElementById('compareCount').textContent = '';
+  renderCompare();
+}
+
+function renderCompare() {
+  const el = document.getElementById('compareContent');
+  if (compareList.length === 0) {
+    el.innerHTML = `<div class="compare-empty"><span>👥</span>Nenhum candidato adicionado à comparação ainda.<br>Analise candidatos e clique em "+ Adicionar à comparação".</div>`;
+    return;
+  }
+
+  const sortedList = [...compareList].sort((a,b) => b.score - a.score);
+
+  const verdictMap = { GO: 'tag-go', MAYBE: 'tag-maybe', NO: 'tag-no' };
+  const verdictLabel = { GO: 'Avançar', MAYBE: 'Avaliar', NO: 'Recusar' };
+  const scoreColor = s => s >= 70 ? 'var(--accent2)' : s >= 50 ? 'var(--maybe)' : 'var(--danger)';
+
+  el.innerHTML = sortedList.map((r, idx) => `
+    <div class="compare-row" style="margin-bottom:1rem">
+      <div class="compare-name-cell">
+        <div>
+          ${idx === 0 ? '<span style="font-size:0.65rem;background:rgba(232,197,71,0.15);color:var(--accent);padding:0.2rem 0.5rem;border-radius:4px;margin-right:0.5rem;font-weight:700;letter-spacing:0.08em">MELHOR</span>' : ''}
+          <span class="c-name">${r.name}</span>
+          <span style="font-size:0.78rem;color:var(--muted);margin-left:0.5rem">${r.role}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem">
+          <span class="tag ${verdictMap[r.verdict]}">${verdictLabel[r.verdict]}</span>
+          <span class="c-score-badge" style="color:${scoreColor(r.score)}">${r.score}</span>
+          <button class="btn btn-danger" onclick="removeFromCompare(${r.id})">✕</button>
+        </div>
+      </div>
+      <div class="compare-fields">
+        <div class="compare-field">
+          <span class="cf-label">Subscores</span>
+          <span class="cf-value">${r.subscores.map(s => `${s.label}: <strong style="color:var(--text)">${s.value}</strong>`).join(' · ')}</span>
+        </div>
+        <div class="compare-field">
+          <span class="cf-label">Pontos Fortes</span>
+          <span class="cf-value">${(r.strengths || []).map(s => '▲ ' + s).join('<br>')}</span>
+        </div>
+        <div class="compare-field">
+          <span class="cf-label">Gaps</span>
+          <span class="cf-value">${(r.gaps || []).map(g => '▼ ' + g).join('<br>')}</span>
+        </div>
+        <div class="compare-field">
+          <span class="cf-label">Pontos Cegos</span>
+          <span class="cf-value">${(r.blindspots || []).map(b => '⚑ <strong style="color:var(--accent)">' + b.label + '</strong>: ' + b.text).join('<br><br>')}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function removeFromCompare(id) {
+  compareList = compareList.filter(c => c.id !== id);
+  document.getElementById('compareCount').textContent = compareList.length ? '(' + compareList.length + ')' : '';
+  renderCompare();
+}
+
+// ─── HISTORY ─────────────────────────────────────────
+function renderHistory() {
+  const el = document.getElementById('historyContent');
+  if (history.length === 0) {
+    el.innerHTML = `<div class="history-empty"><span>📂</span>Nenhuma análise salva ainda.</div>`;
+    return;
+  }
+  const scoreColor = s => s >= 70 ? 'var(--accent2)' : s >= 50 ? 'var(--maybe)' : 'var(--danger)';
+  const verdictMap = { GO: 'tag-go', MAYBE: 'tag-maybe', NO: 'tag-no' };
+  const verdictLabel = { GO: 'Avançar', MAYBE: 'Avaliar', NO: 'Recusar' };
+
+  el.innerHTML = `<div class="history-list">` + history.map(r => `
+    <div class="history-item" onclick="viewHistoryResult(${r.id})">
+      <div>
+        <div class="hi-name">${r.name}</div>
+        <div class="hi-meta">
+          <span>${r.role}</span>
+          <span>${r.date}</span>
+          <span class="tag ${verdictMap[r.verdict]}">${verdictLabel[r.verdict]}</span>
+        </div>
+      </div>
+      <div class="hi-actions">
+        <div class="hi-score" style="color:${scoreColor(r.score)}">${r.score}</div>
+        <button class="btn btn-danger" onclick="event.stopPropagation(); deleteHistory(${r.id})">✕</button>
+      </div>
+    </div>
+  `).join('') + `</div>`;
+}
+
+function viewHistoryResult(id) {
+  const r = history.find(h => h.id === id);
+  if (!r) return;
+  currentResult = r;
+  goToAnalyzePage();
+  showResults(r);
+}
+
+function goToAnalyzePage() {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-analyze').classList.add('active');
+  document.querySelectorAll('.nav-tab')[0].classList.add('active');
+}
+
+async function deleteHistory(id) {
+  history = history.filter(h => h.id !== id);
+  await saveHistory();
+  renderHistory();
+}
+
+async function clearHistory() {
+  if (!confirm('Apagar todo o histórico?')) return;
+  history = [];
+  await saveHistory();
+  renderHistory();
+}
+
+// ─── EXPORT PDF ───────────────────────────────────────
+function exportPDF() {
+  if (!currentResult) return;
+  const r = currentResult;
+  const verdictLabel = { GO: '✓ Avançar', MAYBE: '◎ Avaliar com Atenção', NO: '✕ Não Recomendado' };
+  const scoreColor = r.score >= 70 ? '#1a7a50' : r.score >= 50 ? '#a06010' : '#a02010';
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Lens — ${r.name}</title>
+<style>
+  body { font-family: Georgia, serif; max-width: 800px; margin: 0 auto; padding: 3rem 2rem; color: #1a1a1a; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  .meta { color: #666; font-size: 0.9rem; margin-bottom: 2rem; font-family: monospace; }
+  .score-row { display: flex; align-items: center; gap: 2rem; margin-bottom: 2rem; padding: 1.5rem; border: 2px solid #eee; border-radius: 8px; }
+  .score-big { font-size: 4rem; font-weight: 900; color: ${scoreColor}; line-height: 1; }
+  .verdict { display: inline-block; padding: 0.3rem 0.8rem; background: #f5f5f5; border-radius: 100px; font-size: 0.85rem; font-family: sans-serif; margin-bottom: 0.5rem; }
+  .summary { color: #555; line-height: 1.7; font-size: 0.95rem; }
+  .subscores { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-bottom: 2rem; }
+  .ss { text-align: center; padding: 1rem; border: 1px solid #eee; border-radius: 6px; }
+  .ss-val { font-size: 1.5rem; font-weight: 900; }
+  .ss-label { font-size: 0.7rem; font-family: sans-serif; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.25rem; }
+  h2 { font-size: 1rem; font-family: sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: #888; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin: 1.5rem 0 0.75rem; }
+  ul { padding-left: 1.5rem; }
+  li { margin-bottom: 0.4rem; font-size: 0.9rem; line-height: 1.6; }
+  .blind-item { padding: 0.75rem 1rem; border: 1px solid #f0e090; background: #fffdf0; border-radius: 4px; margin-bottom: 0.75rem; }
+  .blind-label { font-size: 0.7rem; font-family: sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: #a06010; margin-bottom: 0.25rem; }
+  .blind-text { font-size: 0.87rem; line-height: 1.6; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.75rem; color: #aaa; font-family: sans-serif; }
+</style>
+</head><body>
+<h1>${r.name}</h1>
+<div class="meta">${r.role} · Analisado em ${r.date} · Lens — Análise Inteligente de Currículos</div>
+<div class="score-row">
+  <div class="score-big">${r.score}</div>
+  <div>
+    <div class="verdict">${verdictLabel[r.verdict] || r.verdict}</div>
+    <div style="font-size:1.1rem;font-weight:bold;margin-bottom:0.3rem">${r.title}</div>
+    <div class="summary">${r.summary}</div>
+  </div>
+</div>
+<div class="subscores">${r.subscores.map(s => `<div class="ss"><div class="ss-val">${s.value}</div><div class="ss-label">${s.label}</div></div>`).join('')}</div>
+<h2>Pontos Fortes</h2><ul>${r.strengths.map(i => `<li>${i}</li>`).join('')}</ul>
+<h2>Gaps Identificados</h2><ul>${r.gaps.map(i => `<li>${i}</li>`).join('')}</ul>
+<h2>Pontos Cegos — O que o CV não mostra</h2>${r.blindspots.map(b => `<div class="blind-item"><div class="blind-label">⚑ ${b.label}</div><div class="blind-text">${b.text}</div></div>`).join('')}
+<h2>Perguntas para Entrevista</h2><ol>${r.questions.map(i => `<li>${i}</li>`).join('')}</ol>
+<div class="footer">Gerado por Lens · Análise Inteligente de Currículos</div>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Lens_${r.name.replace(/\s+/g,'_')}_${r.role.replace(/\s+/g,'_')}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── MISC ─────────────────────────────────────────────
+function newAnalysis() {
+  document.getElementById('resultsView').style.display = 'none';
+  document.getElementById('inputView').style.display = 'block';
+  pdfText = '';
+  currentResult = null;
+  document.getElementById('fileChip').classList.remove('show');
+  document.getElementById('pdfInput').value = '';
+  document.getElementById('jobDesc').value = '';
+  document.getElementById('candidateName').value = '';
+  document.getElementById('roleTitle').value = '';
+  hideError();
+}
+
+function animateCount(id, from, to, dur) {
+  const el = document.getElementById(id);
+  const start = performance.now();
+  function step(ts) {
+    const p = Math.min((ts - start) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(from + (to - from) * ease);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+
+<!-- SITE FOOTER -->
+<footer style="
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: var(--surface);
+">
+  <div style="display:flex;align-items:center;gap:0.75rem;">
+    <span style="font-family:'Fraunces',serif;font-weight:900;font-size:1rem;letter-spacing:-0.03em;">L<span style="color:var(--accent)">e</span>ns</span>
+    <span style="width:1px;height:14px;background:var(--border2);display:inline-block"></span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--muted);">v2.1.0</span>
+    <span style="width:1px;height:14px;background:var(--border2);display:inline-block"></span>
+    <span style="font-size:0.75rem;color:var(--muted);">Análise Inteligente de Currículos</span>
+  </div>
+  <div style="font-size:0.72rem;color:var(--muted);text-align:right;line-height:1.6;">
+    Desenvolvido por <span style="color:var(--text);font-weight:600;">Guilherme Pereira</span>
+    <span style="margin:0 0.4rem;opacity:0.4">·</span>
+    © 2026 Lens. Todos os direitos reservados.
+  </div>
+</footer>
+
+</body>
+</html>
